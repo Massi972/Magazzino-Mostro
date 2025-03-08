@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from "/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "/components/ui/card"
 import { Input } from "/components/ui/input"
@@ -27,40 +27,29 @@ type Vendita = {
   data: string
 }
 
-const saveData = (key: string, data: any) => {
-  localStorage.setItem(key, JSON.stringify(data))
-}
-
-const loadData = (key: string) => {
-  const data = localStorage.getItem(key)
-  return data ? JSON.parse(data) : null
-}
-
-export default function GestionalePersistente() {
-  const [magliette, setMagliette] = useState<Maglietta[]>(
-    loadData('magliette') || [
-      {
-        id: 1,
-        modello: 'Classica',
-        colore: 'Bianca',
-        taglie: [
-          { taglia: 'M', quantita: 10 },
-          { taglia: 'L', quantita: 5 }
-        ],
-        prezzo: 20
-      },
-      {
-        id: 2,
-        modello: 'V-Scollo',
-        colore: 'Nera',
-        taglie: [
-          { taglia: 'S', quantita: 8 },
-          { taglia: 'M', quantita: 3 }
-        ],
-        prezzo: 25
-      }
-    ]
-  )
+export default function GestionalePagamenti() {
+  const [magliette, setMagliette] = useState<Maglietta[]>([
+    {
+      id: 1,
+      modello: 'Classica',
+      colore: 'Bianca',
+      taglie: [
+        { taglia: 'M', quantita: 10 },
+        { taglia: 'L', quantita: 5 }
+      ],
+      prezzo: 20
+    },
+    {
+      id: 2,
+      modello: 'V-Scollo',
+      colore: 'Nera',
+      taglie: [
+        { taglia: 'S', quantita: 8 },
+        { taglia: 'M', quantita: 3 }
+      ],
+      prezzo: 25
+    }
+  ])
 
   const [nuovaMaglietta, setNuovaMaglietta] = useState({
     modello: '',
@@ -74,21 +63,13 @@ export default function GestionalePersistente() {
     quantita: 0
   })
 
-  const [vendite, setVendite] = useState<Vendita[]>(loadData('vendite') || [])
+  const [vendite, setVendite] = useState<Vendita[]>([])
   const [nuovaVendita, setNuovaVendita] = useState({
     magliettaId: 0,
     taglia: '',
     quantita: 0,
     metodoPagamento: 'contanti' as 'contanti' | 'paypal'
   })
-
-  useEffect(() => {
-    saveData('magliette', magliette)
-  }, [magliette])
-
-  useEffect(() => {
-    saveData('vendite', vendite)
-  }, [vendite])
 
   const aggiungiTaglia = () => {
     if (!nuovaTaglia.taglia || nuovaTaglia.quantita <= 0) return
@@ -132,6 +113,7 @@ export default function GestionalePersistente() {
     const maglietta = magliette.find(m => m.id === nuovaVendita.magliettaId)
     if (!maglietta || !nuovaVendita.taglia || nuovaVendita.quantita <= 0) return
 
+    // Aggiorna la quantità in magazzino
     const updatedMagliette = magliette.map(m =>
       m.id === nuovaVendita.magliettaId
         ? {
@@ -146,6 +128,7 @@ export default function GestionalePersistente() {
     )
     setMagliette(updatedMagliette)
 
+    // Aggiungi la vendita allo storico
     setVendite([...vendite, {
       id: Date.now(),
       magliettaId: nuovaVendita.magliettaId,
@@ -156,6 +139,7 @@ export default function GestionalePersistente() {
       data: new Date().toLocaleDateString()
     }])
 
+    // Resetta il form
     setNuovaVendita({ magliettaId: 0, taglia: '', quantita: 0, metodoPagamento: 'contanti' })
   }
 
