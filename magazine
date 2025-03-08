@@ -1,0 +1,383 @@
+import { useState, useEffect } from 'react'
+import { Button } from "/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "/components/ui/card"
+import { Input } from "/components/ui/input"
+import { Trash, Plus, Minus, ShoppingCart } from "lucide-react"
+
+type Taglia = {
+  taglia: string
+  quantita: number
+}
+
+type Maglietta = {
+  id: number
+  modello: string
+  colore: string
+  taglie: Taglia[]
+  prezzo: number
+}
+
+type Vendita = {
+  id: number
+  magliettaId: number
+  modello: string
+  taglia: string
+  quantita: number
+  metodoPagamento: 'contanti' | 'paypal'
+  data: string
+}
+
+const saveData = (key: string, data: any) => {
+  localStorage.setItem(key, JSON.stringify(data))
+}
+
+const loadData = (key: string) => {
+  const data = localStorage.getItem(key)
+  return data ? JSON.parse(data) : null
+}
+
+export default function GestionalePersistente() {
+  const [magliette, setMagliette] = useState<Maglietta[]>(
+    loadData('magliette') || [
+      {
+        id: 1,
+        modello: 'Classica',
+        colore: 'Bianca',
+        taglie: [
+          { taglia: 'M', quantita: 10 },
+          { taglia: 'L', quantita: 5 }
+        ],
+        prezzo: 20
+      },
+      {
+        id: 2,
+        modello: 'V-Scollo',
+        colore: 'Nera',
+        taglie: [
+          { taglia: 'S', quantita: 8 },
+          { taglia: 'M', quantita: 3 }
+        ],
+        prezzo: 25
+      }
+    ]
+  )
+
+  const [nuovaMaglietta, setNuovaMaglietta] = useState({
+    modello: '',
+    colore: '',
+    taglie: [] as Taglia[],
+    prezzo: 0
+  })
+
+  const [nuovaTaglia, setNuovaTaglia] = useState({
+    taglia: '',
+    quantita: 0
+  })
+
+  const [vendite, setVendite] = useState<Vendita[]>(loadData('vendite') || [])
+  const [nuovaVendita, setNuovaVendita] = useState({
+    magliettaId: 0,
+    taglia: '',
+    quantita: 0,
+    metodoPagamento: 'contanti' as 'contanti' | 'paypal'
+  })
+
+  useEffect(() => {
+    saveData('magliette', magliette)
+  }, [magliette])
+
+  useEffect(() => {
+    saveData('vendite', vendite)
+  }, [vendite])
+
+  const aggiungiTaglia = () => {
+    if (!nuovaTaglia.taglia || nuovaTaglia.quantita <= 0) return
+    setNuovaMaglietta({
+      ...nuovaMaglietta,
+      taglie: [...nuovaMaglietta.taglie, nuovaTaglia]
+    })
+    setNuovaTaglia({ taglia: '', quantita: 0 })
+  }
+
+  const aggiungiMaglietta = () => {
+    if (!nuovaMaglietta.modello || !nuovaMaglietta.colore || nuovaMaglietta.taglie.length === 0 || nuovaMaglietta.prezzo <= 0) return
+    
+    setMagliette([...magliette, {
+      id: Date.now(),
+      ...nuovaMaglietta
+    }])
+    setNuovaMaglietta({ modello: '', colore: '', taglie: [], prezzo: 0 })
+  }
+
+  const rimuoviMaglietta = (id: number) => {
+    setMagliette(magliette.filter(maglietta => maglietta.id !== id))
+  }
+
+  const aggiornaQuantita = (id: number, taglia: string, amount: number) => {
+    setMagliette(magliette.map(maglietta => 
+      maglietta.id === id
+        ? {
+            ...maglietta,
+            taglie: maglietta.taglie.map(t =>
+              t.taglia === taglia
+                ? { ...t, quantita: Math.max(0, t.quantita + amount) }
+                : t
+            )
+          }
+        : maglietta
+    ))
+  }
+
+  const registraVendita = () => {
+    const maglietta = magliette.find(m => m.id === nuovaVendita.magliettaId)
+    if (!maglietta || !nuovaVendita.taglia || nuovaVendita.quantita <= 0) return
+
+    const updatedMagliette = magliette.map(m =>
+      m.id === nuovaVendita.magliettaId
+        ? {
+            ...m,
+            taglie: m.taglie.map(t =>
+              t.taglia === nuovaVendita.taglia
+                ? { ...t, quantita: Math.max(0, t.quantita - nuovaVendita.quantita) }
+                : t
+            )
+          }
+        : m
+    )
+    setMagliette(updatedMagliette)
+
+    setVendite([...vendite, {
+      id: Date.now(),
+      magliettaId: nuovaVendita.magliettaId,
+      modello: maglietta.modello,
+      taglia: nuovaVendita.taglia,
+      quantita: nuovaVendita.quantita,
+      metodoPagamento: nuovaVendita.metodoPagamento,
+      data: new Date().toLocaleDateString()
+    }])
+
+    setNuovaVendita({ magliettaId: 0, taglia: '', quantita: 0, metodoPagamento: 'contanti' })
+  }
+
+  const venditeContanti = vendite.filter(v => v.metodoPagamento === 'contanti')
+  const venditePayPal = vendite.filter(v => v.metodoPagamento === 'paypal')
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
+        <header className="text-center">
+          <h1 className="text-3xl font-bold text-gray-800">Gestionale Magazzino</h1>
+          <p className="text-sm text-gray-500">Gestisci il tuo inventario di magliette con stile</p>
+        </header>
+
+        {/* Form Aggiungi Maglietta */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Aggiungi Nuova Maglietta</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                placeholder="Modello"
+                value={nuovaMaglietta.modello}
+                onChange={(e) => setNuovaMaglietta({ ...nuovaMaglietta, modello: e.target.value })}
+              />
+              <Input
+                placeholder="Colore"
+                value={nuovaMaglietta.colore}
+                onChange={(e) => setNuovaMaglietta({ ...nuovaMaglietta, colore: e.target.value })}
+              />
+              <Input
+                type="number"
+                placeholder="Prezzo (€)"
+                value={nuovaMaglietta.prezzo}
+                onChange={(e) => setNuovaMaglietta({ ...nuovaMaglietta, prezzo: parseFloat(e.target.value) || 0 })}
+                min="0.01"
+                step="0.01"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Input
+                  placeholder="Taglia"
+                  value={nuovaTaglia.taglia}
+                  onChange={(e) => setNuovaTaglia({ ...nuovaTaglia, taglia: e.target.value })}
+                />
+                <Input
+                  type="number"
+                  placeholder="Quantità"
+                  value={nuovaTaglia.quantita}
+                  onChange={(e) => setNuovaTaglia({ ...nuovaTaglia, quantita: parseInt(e.target.value) || 0 })}
+                  min="1"
+                />
+                <Button onClick={aggiungiTaglia} className="w-full">
+                  Aggiungi Taglia
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {nuovaMaglietta.taglie.map((taglia, index) => (
+                  <div key={index} className="bg-gray-100 px-3 py-1 rounded-full text-sm">
+                    {taglia.taglia} ({taglia.quantita})
+                  </div>
+                ))}
+              </div>
+            </div>
+            <Button onClick={aggiungiMaglietta} className="w-full">
+              Aggiungi Maglietta
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Lista Magliette */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Inventario Magliette</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {magliette.map(maglietta => (
+                <div key={maglietta.id} className="p-4 bg-white border rounded-lg shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-gray-800">{maglietta.modello}</h3>
+                      <p className="text-sm text-gray-500">{maglietta.colore}</p>
+                      <p className="text-sm text-gray-500">Prezzo: €{maglietta.prezzo.toFixed(2)}</p>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => rimuoviMaglietta(maglietta.id)}
+                      className="p-1"
+                    >
+                      <Trash className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {maglietta.taglie.map((taglia, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{taglia.taglia}</span>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => aggiornaQuantita(maglietta.id, taglia.taglia, -1)}
+                            className="p-1"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="text-sm font-medium">{taglia.quantita}</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => aggiornaQuantita(maglietta.id, taglia.taglia, 1)}
+                            className="p-1"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Sezione Vendite */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Registra Vendita</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <select
+                value={nuovaVendita.magliettaId}
+                onChange={(e) => setNuovaVendita({ ...nuovaVendita, magliettaId: parseInt(e.target.value) })}
+                className="p-2 border rounded"
+              >
+                <option value={0}>Seleziona Maglietta</option>
+                {magliette.map(maglietta => (
+                  <option key={maglietta.id} value={maglietta.id}>
+                    {maglietta.modello} ({maglietta.colore})
+                  </option>
+                ))}
+              </select>
+              <Input
+                placeholder="Taglia"
+                value={nuovaVendita.taglia}
+                onChange={(e) => setNuovaVendita({ ...nuovaVendita, taglia: e.target.value })}
+              />
+              <Input
+                type="number"
+                placeholder="Quantità"
+                value={nuovaVendita.quantita}
+                onChange={(e) => setNuovaVendita({ ...nuovaVendita, quantita: parseInt(e.target.value) || 0 })}
+                min="1"
+              />
+              <select
+                value={nuovaVendita.metodoPagamento}
+                onChange={(e) => setNuovaVendita({ ...nuovaVendita, metodoPagamento: e.target.value as 'contanti' | 'paypal' })}
+                className="p-2 border rounded"
+              >
+                <option value="contanti">Contanti</option>
+                <option value="paypal">PayPal</option>
+              </select>
+            </div>
+            <Button onClick={registraVendita} className="w-full">
+              Registra Vendita
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Storico Vendite */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Vendite Contanti */}
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Vendite Contanti</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {venditeContanti.map(vendita => (
+                  <div key={vendita.id} className="p-3 bg-white border rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{vendita.modello} ({vendita.taglia})</p>
+                        <p className="text-sm text-gray-500">Quantità: {vendita.quantita}</p>
+                      </div>
+                      <p className="text-sm text-gray-500">{vendita.data}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Vendite PayPal */}
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Vendite PayPal</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {venditePayPal.map(vendita => (
+                  <div key={vendita.id} className="p-3 bg-white border rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{vendita.modello} ({vendita.taglia})</p>
+                        <p className="text-sm text-gray-500">Quantità: {vendita.quantita}</p>
+                      </div>
+                      <p className="text-sm text-gray-500">{vendita.data}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
